@@ -82,3 +82,7 @@ I'm planning to run the project on the RaspberryPi V1. So most likely it would b
 * Standalone apps: API (Flask server, any other Python web server, mod_fsgi) and Web (node.js, minimized JS on a static web werver)
 
 The only rule for deployment: connect API with DB of your choice, configure Backend to give correct link to API from browsers.
+
+### UML diagrams
+
+comming soon. They are present in the repo, but later I will export them as images
