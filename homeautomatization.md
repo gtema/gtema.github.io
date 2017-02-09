@@ -68,6 +68,7 @@ given auth point (by default configured /auth) and add received token (or the AP
 * Deployment instructions
 
 I'm planning to run the project on the RaspberryPi V1. So most likely it would be deployed under mod_wsgi@apache application serving also compacted JS due to the performance lack. However there are multiple possibilities for deployment:
+
 - docker containers (standalone containers, mixed container with mod_fsgi + compacted JS, docker-compose)
 - Standalone apps: API (Flask server, any other Python web server, mod_fsgi) and Web (node.js, minimized JS on a static web werver)
 - Heroku: API is deployable to the Heroku with no changes now. Just set the config variable APP_SETTINGS=config.HerokuConfig and configure a PG addon
