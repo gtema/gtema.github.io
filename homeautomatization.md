@@ -20,7 +20,6 @@ Heavy development stage, therefore just 0.0.3
 Usually I do commits while switching between dev stations, so not every commit is considered as end of work.
 
 
-
 ### How do I get set up? ###
 
 * Use of docker-compose (preferred)
@@ -33,12 +32,11 @@ so that local changes affect containers immediately without redeployment.
 Use script setup.sh in order to setup python virtual environment and npm modules.
 After that use server/start_server.sh script to start api and web/npm start to start node.js
 
-* Use Heroku PaaS for API part (static web can be hosted by GH-Pages)
+* Use Heroku PaaS for API part (static part can be hosted by GH-Pages)
 
 Create account on Heroku, create python application for the server, add database.
 Use git subtree push --prefix server heroku master to push only server content as your app.
 For the setup trigger 'init' target to set up db tables and some test data (taken from categories.csv, products.csv)
-
 
 
 * Configuration
@@ -52,7 +50,7 @@ Quite a few, listed per component correspondingly (server/requirements.txt and w
 
 * Database configuration
 
-Up to now a local SQLite DB is used (app.SQLite). Surely not a production way. API contains init.py script, which creates the DB schema according to the configured connection and populates it with my "development" data. Feel free to modify it for your needs.
+Up to now a local SQLite DB is used (app.SQLite). Surely not a production way. On Heroku PG is used. API contains init.py script, which creates the DB schema according to the configured connection and populates it with my "development" data. Feel free to modify it for your needs.
 
 * How to run tests
 
@@ -60,21 +58,23 @@ Up to now a local SQLite DB is used (app.SQLite). Surely not a production way. A
 
 `cd server && python test.py` (do not forget you virtualenv)
 
-* Security
+### Security
 
-Backend REST API access is protected by the JWT authorization token. In order to use API authorize yourself first at the
-given auth point (by default configured /auth) and add received token (or the API_KEY) to the headers of all further API requests.
+Backend REST API access is protected by the Basic auth or API_KEY authorization token. In order to use API authorize yourself first at the
+given auth point (by default configured /auth) and add received token (or the API_KEY) to the headers of all further API requests. Alternatively simply provide credentials with each API request. User creation is not supported so far (during the db initialization few users are being created)
 
-* Deployment instructions
+### Deployment instructions
 
 I'm planning to run the project on the RaspberryPi V1. So most likely it would be deployed under mod_wsgi@apache application serving also compacted JS due to the performance lack. However there are multiple possibilities for deployment:
 
 - docker containers (standalone containers, mixed container with mod_fsgi + compacted JS, docker-compose)
 - Standalone apps: API (Flask server, any other Python web server, mod_fsgi) and Web (node.js, minimized JS on a static web werver)
-- Heroku: API is deployable to the Heroku with no changes now. Just set the config variable APP_SETTINGS=config.HerokuConfig and configure a PG addon
+- PaaS:
+  - Heroku: API is deployable to the Heroku with no changes now. Just set the config variable APP_SETTINGS=config.HerokuConfig and configure a PG addon
+  - docker cloud is in progress
 
 The only rule for deployment: connect API with DB of your choice, configure Frontend to give correct link to API from browsers.
 
 ### UML diagrams
 
-comming soon. They are present in the repo, but later I will export them as images
+comming soon...
