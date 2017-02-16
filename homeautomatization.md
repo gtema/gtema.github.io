@@ -71,7 +71,6 @@ I'm planning to run the project on the RaspberryPi V1. So most likely it would b
 - Standalone apps: API (Flask server, any other Python web server, mod_fsgi) and Web (node.js, minimized JS on a static web werver)
 - PaaS:
   - Heroku: API is deployable to the Heroku with no changes now. Just set the config variable APP_SETTINGS=config.HerokuConfig and configure a PG addon
-  - docker cloud is in progress
 
 There is small helper script for deployment in the repo root. It currently supports deployment to my home RaspberryPi and Heroku (requires 2 git remotes to be properly set: heroku_api and heroku_web).
 
