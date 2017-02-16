@@ -32,9 +32,9 @@ so that local changes affect containers immediately without redeployment.
 Use script setup.sh in order to setup python virtual environment and npm modules.
 After that use server/start_server.sh script to start api and web/npm start to start node.js
 
-* Use Heroku PaaS for API part (static part can be hosted by GH-Pages)
+* Use Heroku PaaS
 
-Create account on Heroku, create python application for the server, add database.
+Create account on Heroku, create python application for the server, add database. Also create node app with [Buildpack](https://github.com/mars/create-react-app-buildpack.git)
 Use git subtree push --prefix server heroku master to push only server content as your app.
 For the setup trigger 'init' target to set up db tables and some test data (taken from categories.csv, products.csv)
 
@@ -61,7 +61,7 @@ Up to now a local SQLite DB is used (app.SQLite). Surely not a production way. O
 ### Security
 
 Backend REST API access is protected by the Basic auth or API_KEY authorization token. In order to use API authorize yourself first at the
-given auth point (by default configured /auth) and add received token (or the API_KEY) to the headers of all further API requests. Alternatively simply provide credentials with each API request. User creation is not supported so far (during the db initialization few users are being created)
+given auth point (by default configured /auth) and add received token (or the API_KEY) to the headers of all further API requests. Alternatively simply provide credentials with each API request (basic auth). User creation is not supported so far (during the db initialization few users are being created)
 
 ### Deployment instructions
 
@@ -73,8 +73,10 @@ I'm planning to run the project on the RaspberryPi V1. So most likely it would b
   - Heroku: API is deployable to the Heroku with no changes now. Just set the config variable APP_SETTINGS=config.HerokuConfig and configure a PG addon
   - docker cloud is in progress
 
+There is small helper script for deployment in the repo root. It currently supports deployment to my home RaspberryPi and Heroku (requires 2 git remotes to be properly set: heroku_api and heroku_web).
+
 The only rule for deployment: connect API with DB of your choice, configure Frontend to give correct link to API from browsers.
 
 ### UML diagrams
 
-comming soon...
+coming soon...
