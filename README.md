@@ -21,7 +21,7 @@ An experienced Software architect and developer, Team Lead with passion on learn
 
 ## Projects
 
-Currently there is only one "public" [project](homeautomatization.html). It is not intended for a public use, but I share it rather as a reference to my work.
+Currently there is only one "public" [project](/homeautomatiion/). It is not intended for a public use, but I share it rather as a reference to my work.
 
 ## Contact details
 
@@ -29,4 +29,3 @@ Please find me on
 
 * [LinkedIn](https://de.linkedin.com/in/artemgoncharov)
 * [Xing](https://www.xing.com/profile/Artem_Goncharov)
-
