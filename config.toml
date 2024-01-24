@@ -1,0 +1,33 @@
+baseURL = 'http://example.org/'
+languageCode = 'en-us'
+title = 'Artem Goncharov'
+theme = 'hugo-coder'
+
+[params]
+  author = "Artem Goncharov"
+  info = "Software Architect"
+  description = "Artem Goncharov's personal website"
+  keywords = "blog,developer,personal"
+
+
+[[params.social]]
+  name = "GitHub"
+  icon = "fa fa-2x fa-github"
+  weight = 2
+  url = "https://github.com/gtema/"
+
+[[params.social]]
+  name = "LinkedIn"
+  icon = "fa fa-2x fa-linkedin"
+  weight = 4
+  url = "https://www.linkedin.com/in/artemgoncharov/"
+
+[[languages.en.menu.main]]
+  name = "Blog"
+  weight = 2
+  url = "posts/"
+
+[[languages.en.menu.main]]
+  name = "About"
+  weight = 1
+  url = "about/"
