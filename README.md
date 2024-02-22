@@ -1,6 +1,6 @@
 # Artem Goncharov
 
-This would be a home page for my projects and other usefull information I would like to share.
+This would be a home page for my projects and other useful information I would like to share.
 
 ## Who am I
 
