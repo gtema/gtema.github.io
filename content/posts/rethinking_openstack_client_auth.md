@@ -171,7 +171,7 @@ a token data as a value. This hashmap can be serialized into the binary form
 Previous attempt with token caching in OpenStackSDK resulted in sporadic
 failures in DevStack tests where few processes could write into the single file
 currupting it. That puts a strict requirement that cache corruption should not
-break the process. When cache file is currupted it must be just silently
+break the process. When cache file is corrupted it must be just silently
 dropped, as well as all expired information should be filtered out from a valid
 file. Additionally a user guiding information about cache file location should
 be also given when certain unrecoverable situations happen.
