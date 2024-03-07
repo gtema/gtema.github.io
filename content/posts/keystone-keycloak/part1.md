@@ -169,6 +169,8 @@ localhost we use:
 
 Redirect URI is a safety measure to allow Keycloak redirect user back to the
 Keystone and not let the flow being high-jacked by some other application.
+The `http://localhost:5000/v3/auth/OS-FEDERATION/websso/openid` is used further
+in the mod_auth_oidc configuration.
 
 Once the client is created it is necessary to describe which data Keycloak is
 going to expose to the client (Keystone) about the user. Our main target for
@@ -365,7 +367,7 @@ OIDCPKCEMethod "S256"
 OIDCCryptoPassphrase "openstack"
 
 # vanity URL that must point to a protected path that does not have any content, such as an extension of the protected federated auth path.
-OIDCRedirectURI "http://localhost:5000/v3/auth/OS-FEDERATION/identity_providers/keycloak/protocols/openid/websso"
+# you should use it as a redirect_uri in the IDP
 OIDCRedirectURI "http://localhost:5000/v3/auth/OS-FEDERATION/websso/openid"
 
 <Location "/v3/auth/OS-FEDERATION/websso/openid">
