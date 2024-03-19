@@ -2,7 +2,7 @@
 
 ## Who am I
 
-An experienced Software architect and developer, Team Lead with passion on learning new things.
+An experienced Software architect and developer, Team Lead with passion on learning new things, a strong open-source believer.
 
 **Life motto**: make life easier. Wish to bring new and better IT technologies into our life, comfort instead of complexity. Believe, that cloud based technologies (with careful design) can make our life much more comfortable.
 
@@ -10,7 +10,7 @@ An experienced Software architect and developer, Team Lead with passion on learn
 
 **Technology values**: usability; quality; performance; efficiency;
 
-**Specialties**: Software architecture, Solution architecture, Cloud, Team/Project management, Product owner, Data Architecture, Advisory/Consultancy, business analysis (requirements), RDBMS, DWH, ETL, Hadoop, data migration, integration, convergent charging, rating&charging, real-time rating, billing, UX, testing (unit, functional, performance), principal consulting, protocols, C, C++, Rust, Java, Perl, PHP, Python, XML, HTML, JavaScript, etc.
+**Specialties**: Software architecture, Solution architecture, Cloud, Team/Project management, Product owner, Data Architecture, Advisory/Consultancy, business analysis (requirements), UX, testing (unit, functional, performance), principal consulting, OpenStack, Kubernetes, C, C++, Rust, Java, Perl, PHP, Python, XML, HTML, JavaScript, etc.
 
 **Interests**: Open Source, science, innovations, new technologies, IT in Healthcare, IT in Automotive, Cloud computing, Embedded Linux programming, low level OS programming
 

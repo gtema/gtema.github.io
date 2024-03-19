@@ -28,6 +28,11 @@ theme = 'hugo-coder'
   url = "posts/"
 
 [[languages.en.menu.main]]
+  name = "Talks"
+  weight = 2
+  url = "talks"
+
+[[languages.en.menu.main]]
   name = "About"
   weight = 1
   url = "about/"
