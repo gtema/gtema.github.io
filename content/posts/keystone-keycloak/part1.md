@@ -487,7 +487,7 @@ clouds:
 ```
 
 With this configuration OpenStackClient fetches IDP relevant information from
-"discovery_endpoint" and peforms direct communication with it in order to
+"discovery_endpoint" and performs direct communication with it in order to
 obtain an access token. With it it then performs the next call to
 "`http://localhost:5000`/v3/OS-FEDERATION/identity_providers/`keycloak`/protocols/`openid`/auth"
 (auth_url, identity_provider and protocol from the configuration are used to
