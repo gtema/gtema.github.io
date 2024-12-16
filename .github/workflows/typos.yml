@@ -18,6 +18,6 @@ jobs:
       uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
     - name: Check spelling of file.txt
-      uses: crate-ci/typos@8e6a4285bcbde632c5d79900a7779746e8b7ea3f # master
+      uses: crate-ci/typos@d1c850b2b5d502763520c25fb4a6a1128ad99bd9 # master
       with:
         config: _typos.toml
