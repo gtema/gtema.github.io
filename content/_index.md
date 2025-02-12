@@ -36,12 +36,8 @@ improves life.
 
 ## Projects
 
-Currently there is only one "public" [project](/homeautomation/). It is not
-intended for a public use, but I share it rather as a reference to my work.
+* [GitHub](https://github.com/gtema)
 
-On the other hand I trying to contribute to Fedoraproject as much as possible.
-As of now I participate in the Python SIG and try to support Python3 port
-activities.
 
 ## Contact details
 
