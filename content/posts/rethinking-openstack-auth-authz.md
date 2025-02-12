@@ -37,10 +37,10 @@ list):
 - username + password. This may be extended to also require MFA.
 
 - application credential with the secret. Those belong to the single user and
-  are tied to the certain authorization scope
+are tied to the certain authorization scope
 
 - OIDC. Technically this is something most complains are being raised about. It
-  is not implemented natively by Keystone and as such has lots of limitations.
+is not implemented natively by Keystone and as such has lots of limitations.
 
 
 ### Authorization (AuthZ)
@@ -96,12 +96,12 @@ customers while being themselves in a control of such integration.
 complicates policy management.
 
 - Lack of possibility to integrate external authorization systems. This is
-often necessary when OpenStack is just one offering in the service potfolio of
+often necessary when OpenStack is just one offering in the service portfolio of
 the CSP.
 
 - Lack of service accounts concept. There is often a misunderstanding that
-OpenStack user != human. Modelling service account as a user with a set of
-application credentials can be used. However in a case of allowing Workflows
+OpenStack user != human. Modeling service account as a user with a set of
+application credentials can be used. However in a case of allowing Workflows to
 consume cloud resources such accounts are very dynamic and usually cannot be
 mapped to the application credential. In addition to that controlling
 credentials of such account is more complex than it could be. Application
@@ -113,11 +113,11 @@ the middleware side. On the first sight it looks logical. With the next loo few
 weak points are popping up:
 
 - covering complexity of OpenStack authorization model by the IdP is not
-trivial. At the moment Keycloak does not supporting scope based role
-assignments. As such it is not not trivial to ensure that OAuth token will
-contain properly managed role assignments.
+trivial. At the moment Keycloak does not support scope based role assignments.
+As such it is not not trivial to ensure that OAuth token will contain properly
+managed role assignments.
 
-- service catalog fetching is not possible since Keystone does not use
+- service catalog fetching is not possible since Keystone does not itself use
 middleware for authentication
 
 - it is not possible for customers to control authentication and authorization
@@ -125,12 +125,12 @@ within their domain (not possible to configure own IdP or forbid access with
 GitHub workflow JWT from a foreign repository).
 
 Flipping the process around would be more logical. Here Keystone should become
-an IdP itself an issue a JWT. This could be then easily verified on the
-middleware side by every OpenStack service establishing proper centralization
-while at the same time providing full control to users. Further this will allow
-implementing advanced features of authenticated workloads (i.e. VM gets a
-direct API access token associated with certain permissions or infrastructure
-based authentication).
+an IdP itself and be able to issue a JWT. This could be then easily verified on
+the middleware side by every OpenStack service establishing proper
+centralization while at the same time providing full control to users. Further
+this will allow implementing advanced features of authenticated workloads (i.e.
+VM gets a direct API access token associated with certain permissions or
+infrastructure based authentication).
 
 ## What could be done
 
@@ -142,11 +142,12 @@ relying party and authenticates user with afterwards issuing an OpenStack token
 to the user.
 
 - allow exchange of JWT issued by the trusted IdP with the OpenStack token. A
-simple usecase here is a possibility for an GitHub workflow to access OpenStack
-resources what is possible for the majority of cloud and service providers
+simple use case here is a possibility for an GitHub workflow to access
+OpenStack resources what is possible for the majority of cloud and service
+providers
 
 - Implement SCIM support so that customer is able in a self-service manner
-synchronize domain users from an external Idp
+synchronize domain users from an external IdP
 
 ### External authorization system
 
@@ -187,7 +188,7 @@ already on the API GW (proxy) side reducing amount of invalid load on the
 service process.
 
 It depends on the deployment tool with CSP being able to optimize it for the
-preciese use case (i.e. using tools like Topaz or OPAL to automate data and
+precise use case (i.e. using tools like Topaz or OPAL to automate data and
 policy automation processes not supported by OPA natively).
 
 ## Changes
@@ -241,7 +242,7 @@ data synchronization in combination with OIDC/OAuth user federation.
 ### New Auth flows
 
 - OIDC (RP mode) - replace what mod_auth_oidc is doing now. Such auth request
-may immediately include authorization request to avoid reauthorization
+may immediately include authorization request to avoid re-authorization
 necessity. User sends auth request to a special URL in Keystone which
 initializes OIDC auth and redirects user to the IdP. Once user authenticates at
 the IdP it is being redirected to the localhost from where client passes
@@ -278,9 +279,9 @@ IdP. Keystone decodes the JWT, validates it with the issuer and after checking
 authorization locally issues a regular token. Also here every customer must be
 able to configure own rules and IdPs from which such requests are allowed. The
 JWT subject may be a regular user (which is then considered in the same way as
-an oidc federated user) or a workflow (similar to service account).
-Same as in the OIDC flow token exchange request may contain scope information
-or be hardcoded in the mapping.
+an oidc federated user) or a workflow (similar to service account). Same as in
+the OIDC flow token exchange request may contain scope information or be
+hardcoded in the mapping.
 
 {{<mermaid>}}
 
