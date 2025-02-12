@@ -124,10 +124,13 @@ middleware for authentication
 within their domain (not possible to configure own IdP or forbid access with
 GitHub workflow JWT from a foreign repository).
 
-Flipping the process around would be more proper. Here Keystone should become
+Flipping the process around would be more logical. Here Keystone should become
 an IdP itself an issue a JWT. This could be then easily verified on the
-middleware side by every process establishing proper centralization while at
-the same time providing full control to users.
+middleware side by every OpenStack service establishing proper centralization
+while at the same time providing full control to users. Further this will allow
+implementing advanced features of authenticated workloads (i.e. VM gets a
+direct API access token associated with certain permissions or infrastructure
+based authentication).
 
 ## What could be done
 
@@ -298,6 +301,19 @@ sequenceDiagram
 
 ### Keystone model change
 
+There are many similarities between JWT and OIDC, but also differences (OIDC
+flow will most likely contain client_id client_secret, while JWT will never has
+this). Keeping that in mind and also having a peak at SAML configuration it
+makes sense to separate them between dedicated tables.
+
+At the CSP level there might be pre-configured IdPs that could be used by
+domains. On the other side customers (domain) might need to manage their
+dedicated IdPs. domain_id property of IdP should be optional so that it is
+possible to implement IdP filtering based on customer domain_id or global ones.
+
+Mappings should belong under the oidc/jwt configuration and be bound to the
+domain.
+
 {{<mermaid>}}
 
 classDiagram
@@ -357,12 +373,12 @@ classDiagram
         ...
     }
 
-    oidc --|> idp
-    jwt --|> idp
-    mapping  --|> oidc
-    mapping --|> jwt
-    service_account ..> user
-    mapping .. user
-    mapping .. service_account
+    oidc "1" --|> "1" idp: OIDC flow
+    jwt "1" --|> "1" idp: JWT flow
+    mapping "*" --|> "1" oidc: OIDC mapping
+    mapping "*" --|> "1" jwt: JWT mapping
+    service_account "1" ..> "1" user: mapped to the user
+    mapping "*" .. "1" user: maps to regular user
+    mapping "*" .. "1" service_account: maps to service accounts
 
 {{</mermaid>}}
