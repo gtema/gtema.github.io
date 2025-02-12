@@ -1,11 +1,11 @@
-baseURL = 'http://example.org/'
-languageCode = 'en-us'
+baseURL = 'https://gtema.github.io/'
+languageCode = 'en'
 title = 'Artem Goncharov'
 theme = 'hugo-coder'
 
 [params]
   author = "Artem Goncharov"
-  info = "Software Architect"
+  info = ["Software Architect"]
   description = "Artem Goncharov's personal website"
   keywords = "blog,developer,personal"
 
@@ -21,6 +21,9 @@ theme = 'hugo-coder'
   icon = "fa fa-2x fa-linkedin"
   weight = 4
   url = "https://www.linkedin.com/in/artemgoncharov/"
+
+[languages.en]
+languageName = ":uk:"
 
 [[languages.en.menu.main]]
   name = "Blog"
