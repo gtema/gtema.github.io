@@ -1,5 +1,5 @@
 +++
-draft = true
+draft = false
 title = "Rethinking of OpenStack Authentication and Authorization"
 description = "Rethinking of OpenStack Authentication and Authorization"
 date = "2025-02-12"
@@ -251,7 +251,7 @@ Client gets back the keystone token for the requested scope. This requires
 having oauth/oidc client information in Keystone directly and every customer
 must be able to connect their own IdPs
 
-{{<mermaid>}}
+```mermaid
 sequenceDiagram
 
     Actor Human
@@ -271,8 +271,7 @@ sequenceDiagram
     Keystone ->> Cli: return Keystone token
     Cli ->> Human: Authorized
 
-
-{{</mermaid>}}
+```
 
 - JWT. Client requests authorization providing JWT token issued by external
 IdP. Keystone decodes the JWT, validates it with the issuer and after checking
@@ -283,7 +282,7 @@ an oidc federated user) or a workflow (similar to service account). Same as in
 the OIDC flow token exchange request may contain scope information or be
 hardcoded in the mapping.
 
-{{<mermaid>}}
+```mermaid
 
 sequenceDiagram
     actor Requester
@@ -297,8 +296,7 @@ sequenceDiagram
     Keystone ->> Requester: Fernet Token
     deactivate Keystone
 
-{{</mermaid>}}
-
+```
 
 ### Keystone model change
 
@@ -315,7 +313,7 @@ possible to implement IdP filtering based on customer domain_id or global ones.
 Mappings should belong under the oidc/jwt configuration and be bound to the
 domain.
 
-{{<mermaid>}}
+```mermaid
 
 classDiagram
     class idp {
@@ -382,4 +380,4 @@ classDiagram
     mapping "*" .. "1" user: maps to regular user
     mapping "*" .. "1" service_account: maps to service accounts
 
-{{</mermaid>}}
+```
