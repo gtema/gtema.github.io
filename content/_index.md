@@ -6,7 +6,7 @@ like to share. Her is da type
 ## Who am I
 
 An experienced Software architect and developer, Team Lead with passion on
-learning new things. Thiss ia a typa
+learning new things. This ia a typa
 
 **Life motto**: make life easier. Wish to bring new and better IT technologies
 into our life, comfort instead of complexity. Believe, that cloud based

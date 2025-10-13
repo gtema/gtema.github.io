@@ -77,7 +77,7 @@ personal credentials, how should this work?
 
 Depending on the Keystone configuration every token has certain validity
 spanning from 1h (default in the DevStack) up to 24h (at least this is the
-maximum I have seen in the wild by certain public clouds). Technicall there is
+maximum I have seen in the wild by certain public clouds). Technically there is
 no upper limit, but keeping the token valid too long poses serious security
 risks.
 
@@ -138,7 +138,7 @@ good storage scheme. A two dimensional matrix seems to be a possible solution
 here. Since caching should be also working in the regular headless mode we
 should not try to use any of the key wallets and/or rely on DBus with secrets
 storage. That means data should be stored on the file system. Encrypting data
-makes also not so much sense since decrypting requie passing additional
+makes also not so much sense since decrypting require passing additional
 decryption secrets. So at least for now we just store cache in regular plain
 text files (remember user password is also located in a plain text form on FS).
 In order to make caching reasonably simple a first dimension of the caching can
