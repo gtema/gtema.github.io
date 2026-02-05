@@ -4,6 +4,8 @@ draft = true
 description = "Rethinking Auth or OpenStack user in client applications"
 date = "2026-03-01"
 author = "Artem Goncharov"
+[build]
+  list = 'never'
 +++
 
 ## Introduction
