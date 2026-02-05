@@ -1,0 +1,383 @@
+<!doctype html><html lang=en><head><title>Configuring Keystone-Keycloak federation - part 1 · Artem Goncharov</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="light dark"><meta name=author content="Artem Goncharov"><meta name=description content="Enabling OpenIDConnect federation between Keystone as Service Provider and Keycloak as Identity provider with ephemeral users"><meta name=keywords content="blog,developer,personal"><meta name=twitter:card content="summary"><meta name=twitter:title content="Configuring Keystone-Keycloak federation - part 1"><meta name=twitter:description content="Enabling OpenIDConnect federation between Keystone as Service Provider and Keycloak as Identity provider with ephemeral users"><meta property="og:url" content="/posts/keystone-keycloak/part1/"><meta property="og:site_name" content="Artem Goncharov"><meta property="og:title" content="Configuring Keystone-Keycloak federation - part 1"><meta property="og:description" content="Enabling OpenIDConnect federation between Keystone as Service Provider and Keycloak as Identity provider with ephemeral users"><meta property="og:locale" content="en"><meta property="og:type" content="article"><meta property="article:section" content="posts"><meta property="article:published_time" content="2024-02-10T00:00:00+00:00"><meta property="article:modified_time" content="2024-02-10T00:00:00+00:00"><link rel=canonical href=/posts/keystone-keycloak/part1/><link rel=preload href=/fonts/fa-brands-400.woff2 as=font type=font/woff2 crossorigin><link rel=preload href=/fonts/fa-regular-400.woff2 as=font type=font/woff2 crossorigin><link rel=preload href=/fonts/fa-solid-900.woff2 as=font type=font/woff2 crossorigin><link rel=stylesheet href=/css/coder.min.7ee04855f01a7f7a311ce189708f520a1a1d93c249cfed3b23e8c27666fc546e.css integrity="sha256-fuBIVfAaf3oxHOGJcI9SChodk8JJz+07I+jCdmb8VG4=" crossorigin=anonymous media=screen><link rel=icon type=image/svg+xml href=/images/favicon.svg sizes=any><link rel=icon type=image/png href=/images/favicon-32x32.png sizes=32x32><link rel=icon type=image/png href=/images/favicon-16x16.png sizes=16x16><link rel=apple-touch-icon href=/images/apple-touch-icon.png><link rel=apple-touch-icon sizes=180x180 href=/images/apple-touch-icon.png><link rel=manifest href=/site.webmanifest><link rel=mask-icon href=/images/safari-pinned-tab.svg color=#5bbad5></head><body class="preload-transitions colorscheme-light"><div class=float-container><a id=dark-mode-toggle class=colorscheme-toggle><i class="fa-solid fa-adjust fa-fw" aria-hidden=true></i></a></div><main class=wrapper><nav class=navigation><section class=container><a class=navigation-title href=/>Artem Goncharov
+</a><input type=checkbox id=menu-toggle>
+<label class="menu-button float-right" for=menu-toggle><i class="fa-solid fa-bars fa-fw" aria-hidden=true></i></label><ul class=navigation-list><li class=navigation-item><a class=navigation-link href=/about/>About</a></li><li class=navigation-item><a class=navigation-link href=/posts/>Blog</a></li><li class=navigation-item><a class=navigation-link href=/talks>Talks</a></li></ul></section></nav><div class=content><section class="container post"><article><header><div class=post-title><h1 class=title><a class=title-link href=/posts/keystone-keycloak/part1/>Configuring Keystone-Keycloak federation - part 1</a></h1></div><div class=post-meta><div class=date><span class=posted-on><i class="fa-solid fa-calendar" aria-hidden=true></i>
+<time datetime=2024-02-10T00:00:00Z>February 10, 2024
+</time></span><span class=reading-time><i class="fa-solid fa-clock" aria-hidden=true></i>
+17-minute read</span></div></div></header><div class=post-content><p>In this series of articles we are going to discuss how to configure Keystone
+with an external Identity provider (federation) based on the Keycloak with
+OpenIDConnect and multiple domain support. Since there are currently issues
+doing so effectively the information will come synchronized with addressing of
+the the mentioned challenges. This part is focused on making it possible to
+have an external Identity provider and map remotely managed users to multiple
+local domains and projects.</p><p><a href=https://docs.openstack.org/keystone/latest/admin/federation/configure_federation.html class=external-link target=_blank rel=noopener>official
+documentation</a>
+provides information required for Keystone configuration and can be used for
+the reference, but it is not sufficient for the context of this article.</p><h1 id=keystone-in-few-words>Keystone in few words
+<a class=heading-link href=#keystone-in-few-words><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h1><p>Keystone is an Identity provider service in OpenStack. In it&rsquo;s current version
+it serves few major purposes:</p><ul><li><p>manage identity resources (users, domain, projects, catalogs)</p></li><li><p>authenticate/authorize users granting them session API token</p></li><li><p>verify user presented token (this capability is normally used by other
+services to verify the user is valid and can do what he tries to do)</p></li></ul><p>By default Keystone is keeping user data locally and thus builds itself an
+identity authority. But it can also be combined with external identity
+authorities in which case it is named as &ldquo;Federation&rdquo;. There are few built-in
+protocols that Keystone supports to delegate user data authority to the
+third party:</p><ul><li><p>LDAP</p></li><li><p>OpenIDConnect</p></li><li><p>Saml2</p></li></ul><p>In the scope of this series we are going to look at how to configure Keystone to
+delegate user management to the Keycloak based on the OpenIDConnect protocol.</p><h2 id=federation-issues>Federation Issues
+<a class=heading-link href=#federation-issues><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><p>The only possibility for building up a federation in Keystone was by
+registering an external identity provider in a certain local domain. This has a
+logical consequence that all users from the remote identity server are mapped
+to the domain where the identity provider was registered. It works pretty well
+when OpenStack installation is relatively small or being used as a private
+cloud with no real segregation based on domains. For the wider use case,
+however, this is not appropriate anymore. Of course it is possible to register
+multiple identity providers in all required domains, but since Keystone on its
+own delegates OpenIDConnect protocol work to additional plugins of the web
+server (mod_oidc for Apache is one of those possibilities) it also means that
+configuration for those plugins must be also repeated X times, not forgetting
+the need to create also multiple OpenID clients in the Identity provider itself
+to enable such mapping.</p><p>Next issue is related with the user authorization: which resources does the
+user have access to and what are the privileges. In OpenStack this is
+represented by roles granted to the user on a certain resources (project or
+domain). This mapping is stored statically in OpenStack as CRUD based
+resources. Now when we want to manage users in one system but their privileges
+in another system this leads absolutely logically to a nightmare.</p><h2 id=why-federate-at-all>Why federate at all?
+<a class=heading-link href=#why-federate-at-all><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><p>If you ask this question then most likely you do not need to have a federation
+and you can just stretch the Keystone across multiple regions. Here we try to
+provide some more information when having an external Identity provider is a
+non-avoidable fact.</p><p>Security becomes more and more complex day by day. Simple 2-factor protection
+is not considered safe anymore and additional device based account protections
+are appearing (passkeys, hardware tokens, etc). Keystone is currently not able
+to deal with such new possibilities. On another side there is often need to
+reuse users in different applications (aside from OpenStack). This is actually
+what OAuth and OpenIDConnect were created for separating the Identity providers
+from Service providers. Keystone alone does not currently serves good as a good
+Identity provider for applications outside of the OpenStack.</p><p>It would be technically possible to extend OpenStack services (Nova, Cinder,
+Glance, etc) to work directly with an external Identity provider but would
+require quite a big effort. It is much easier to make Keystone itself a Service
+provider that deals with the user authorization (issue authorization token that
+other OpenStack services accepts).</p><h1 id=improving-federation-capabilities-of-keystone>Improving federation capabilities of Keystone
+<a class=heading-link href=#improving-federation-capabilities-of-keystone><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h1><p>Now that we understand why federation makes sense and which issues are there
+currently we know what need to be improved.</p><p>As described in the previous chapter first problem that need to be solved is a
+need to be able to map users from an external Identity provider into different
+domains in OpenStack.</p><p>Keystone currently supports 2 different types of users: <code>local</code> and
+<code>ephemeral</code>. A <code>local</code> user, as the name suggests, is a user that Keystone has
+ownership of and is responsible for. An <code>ephemeral</code> one is a user that external
+entity is owning, but Keystone must be aware of to grant OpenStack use.
+Federation is relying on the <code>ephemeral</code> users. In order to let Keystone
+recognise such external user it need to map it to a local &ldquo;ephemeral&rdquo; entity to
+be able to grant roles, projects access, etc. Such users are not even stored in
+the same DB table in Keystone where local users are stored.</p><p>Since a few years there was a solution proposed for the problem, but it was
+unfortunately postponed for the next release (due to the timing constraints)
+and later missed completely. Few companies interested in seeing the problem
+finally solved came together and agreed on a collaboration to finally see the
+improvements. With <a href=https://review.opendev.org/c/openstack/keystone/+/739966 class=external-link target=_blank rel=noopener>this
+change</a> improvement
+of an ephemeral users handling has been finally merged and it became possible
+to map users into different domains. One important thing here is that the
+Domain must be existing by the time the federated users tries to login,
+otherwise the authentication fails with no reasonable information available to
+the user.</p><p>So let us quickly have a look at the steps and sample configuration of the
+Keycloak, Keystone and the Apache web server in front of Keystone since we are
+going to rely on the mod_oidc module for taking over the OpenIDConnect work.</p><h1 id=openidconnect-client-keycloak>OpenIDConnect client (Keycloak)
+<a class=heading-link href=#openidconnect-client-keycloak><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h1><p>Since it is desired to have users managed inside of Keycloak being available
+inside of Keystone it is necessary to create a client. There are lot of
+<a href=https://openid.net/developers/specs/ class=external-link target=_blank rel=noopener>existing materials</a> describing how the
+OpenIDConnect works. <a href=https://openid.net/developers/how-connect-works/ class=external-link target=_blank rel=noopener>A High level
+description</a> giving following
+description to the &ldquo;Client&rdquo;:</p><blockquote><p>A client is a piece of software that requests tokens either for
+authenticating a user or for accessing a resource (also often called a
+relying party or RP). A client must be registered with the OP (OpenID
+Provider). Clients can be web applications, native mobile and desktop
+applications, etc.</p></blockquote><p>In Keycloak a &ldquo;Client&rdquo; is a CRUD resource representing the application (on our
+case Keystone) that would be able to access user data. The &ldquo;Client&rdquo; has certain
+configuration options that influence communication between both sides as well
+as describes which specific OpenIDConnect workflows are supported
+(Authorization Code, Implicit, Resource owner password credentials, Client
+credentials, Device authorization, etc). With this amount of things that can be
+misconfigured is relatively endless. Therefore we start with the most basic
+configuration allowing us to see the Keycloak user being able to get the
+Keystone token to further talk to other OpenStack services.</p><p>Keycloak has a decent GUI, but it is hard to describe in text which of 10000
+check-boxes need to be checked. Actually there is nothing very specific on the
+client for the moment except following properties:</p><ul><li><p>protocol: &ldquo;openid-connect&rdquo;</p></li><li><p>client authentication: &ldquo;on&rdquo;</p></li><li><p>authentication flow: standard, implicit (allowing more is not harming, but is
+not necessary as of now)</p></li><li><p>Valid redirect URI. This is a tricky one to describe since it depends on how
+Keystone is deployed. Since here we deploy both Keystone and Keycloak on the
+localhost we use:</p><ul><li>http://localhost:5000/v3/auth/OS-FEDERATION/websso/openid</li><li>http://localhost:5000/identity/v3/auth/OS-FEDERATION/identity_providers/sso/protocols/openid/websso</li></ul></li></ul><p>Redirect URI is a safety measure to allow Keycloak redirect user back to the
+Keystone and not let the flow being high-jacked by some other application.
+The <code>http://localhost:5000/v3/auth/OS-FEDERATION/websso/openid</code> is used further
+in the mod_auth_oidc configuration.</p><p>Once the client is created it is necessary to describe which data Keycloak is
+going to expose to the client (Keystone) about the user. Our main target for
+now is to expose user name and unique ID (ID of the Keystone). Another
+crucially important user attribute is the domain name (or ID) that the user
+must be assigned into in the Keystone. This is actually why all of the
+improvements are required. Such configuration in Keycloak is being described by
+a &ldquo;Client scope&rdquo;. Keycloak comes with default client scopes being
+pre-configured for the OpenIDConnect and can be extended with the information
+we are going to need. For the re-usability and configuration sanity it is,
+however, suggested to create a dedicated client scope that will not configure
+all the extensions and applied only to those clients, that really need them.</p><p><img src=../images/keycloak_client_scope.png alt="Client Scope"></p><p>As a next step we are going to create mappers that add defined user attributes
+into the exposed information. For this we switch to the mappers tab and add a
+new mapper with &ldquo;User attribute&rdquo; type. For every new attribute that we want
+Keystone to get information about a dedicated mapper need to be created. It
+does not actually matter how exactly user attributes are named, it is
+recommended to keep certain consistency and all 3 attributes &ldquo;name&rdquo;, &ldquo;user
+attribute&rdquo; and &ldquo;token_claim_name&rdquo; to use same value. Here we use &ldquo;openstack-&rdquo;
+prefix for attributes</p><p><img src=../images/keycloak_client_scope_mapper.png alt="Client Scope"></p><p>In total we create following 2 mappers:</p><ul><li>openstack-user-name</li><li>openstack-user-domain-name (feel free to go for domain_id if necessary, but
+this may bite if Keystones are installed per region)</li></ul><p>It is possible to define also something like &ldquo;openstack-user-id&rdquo; with a certain
+unique ID of the user, we are going to rely on the unique ID of the user in the
+Keycloak itself which is automatically available as &ldquo;sub&rdquo; (subject).</p><p>It is important to remember that if the client scope is not configured as a
+&ldquo;Default&rdquo; type the data it is exposing may not become visible without
+explicitly requesting this scope. It is just safe to make it default.</p><p>Next it we are going to create a user with the attributes configured above</p><p><img src=../images/keycloak_user_attributes.png alt="User attributes">
+<strong>NOTE:</strong> It is very important to populate attributes for users otherwise they
+will fail to get Keystone token without much useful information.</p><p>With this Keycloak configuration can be considered as &ldquo;Done&rdquo;</p><h1 id=keystone-configuration>Keystone configuration
+<a class=heading-link href=#keystone-configuration><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h1><p>In order to understand certain values required in the Apache configuration we
+are going to configure Keystone itself next. It is also a pretty strait forward process</p><h2 id=identity-provider>Identity Provider
+<a class=heading-link href=#identity-provider><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><p>We need to register Keycloak as an identity provider in Keystone. This can be
+achieved using
+<a href=https://docs.openstack.org/api-ref/identity/v3-ext/#register-an-identity-provider class=external-link target=_blank rel=noopener>api</a> or the OpenStackClient</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-console data-lang=console><span style=display:flex><span>$ openstack identity provider create --remote-id https://localhost:8443/realms/master keycloak
+</span></span></code></pre></div><p>You can specify in which domain it is going to be created and until recently
+that would mean that all users of this Identity provider would be also
+belonging to this domain. Now this does not matter anymore and IDP can be
+created in any suitable domain (of course that no end customer has access to).
+Additionally certain description can be used and is highly recommended.
+<code>remote-id</code> is something that builds a match between Keystone and Keycloak and
+must be pointing to the realm in Keycloak where the client has been configured
+in the previous step.</p><h2 id=mapping>Mapping
+<a class=heading-link href=#mapping><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><p>Next step is to configure which attribute of Keycloak means what to the
+Keystone. It is done using <code>mapping</code> and can be done using
+<a href=https://docs.openstack.org/api-ref/identity/v3-ext/#create-a-mapping class=external-link target=_blank rel=noopener>api</a> or
+using the OpenStackClient. However this is the first time things are becoming a
+bit more complex and need to be done pretty carefully.</p><h4 id=mappingjson>mapping.json
+<a class=heading-link href=#mappingjson><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h4><div class=highlight filename=m.json><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-json data-lang=json><span style=display:flex><span>[
+</span></span><span style=display:flex><span>  {
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&#34;remote&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#f92672>&#34;type&#34;</span>: <span style=color:#e6db74>&#34;OIDC-preferred_username&#34;</span>
+</span></span><span style=display:flex><span>      },
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#f92672>&#34;type&#34;</span>: <span style=color:#e6db74>&#34;OIDC-email&#34;</span>
+</span></span><span style=display:flex><span>      },
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#f92672>&#34;type&#34;</span>: <span style=color:#e6db74>&#34;OIDC-sub&#34;</span>
+</span></span><span style=display:flex><span>      },
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#f92672>&#34;type&#34;</span>: <span style=color:#e6db74>&#34;OIDC-openstack-user-domain-name&#34;</span>
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ],
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&#34;local&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#f92672>&#34;user&#34;</span>: {
+</span></span><span style=display:flex><span>          <span style=color:#f92672>&#34;type&#34;</span>: <span style=color:#e6db74>&#34;ephemeral&#34;</span>,
+</span></span><span style=display:flex><span>          <span style=color:#f92672>&#34;name&#34;</span>: <span style=color:#e6db74>&#34;{0}&#34;</span>,
+</span></span><span style=display:flex><span>          <span style=color:#f92672>&#34;id&#34;</span>: <span style=color:#e6db74>&#34;{2}&#34;</span>,
+</span></span><span style=display:flex><span>          <span style=color:#f92672>&#34;email&#34;</span>: <span style=color:#e6db74>&#34;{1}&#34;</span>,
+</span></span><span style=display:flex><span>          <span style=color:#f92672>&#34;domain&#34;</span>: {
+</span></span><span style=display:flex><span>            <span style=color:#f92672>&#34;name&#34;</span>: <span style=color:#e6db74>&#34;{3}&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>     }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>]
+</span></span></code></pre></div><p><em>Note: Example above describes content of the <code>rules</code> property of the API call
+or the file content that is being imported using OpenStackClient</em></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-console data-lang=console><span style=display:flex><span>$ openstack mapping create --rules mapping.json keycloak-mapping
+</span></span></code></pre></div><p>The above configuration describes that:</p><ul><li><p><code>OIDC-preferred_username</code> attribute coming to Keystone from &ldquo;remote&rdquo; (in next
+chapter we will have a look on how and why Apache plays role on the attribute
+names) is mapped on the &ldquo;local&rdquo; side (Keystone) to the user name (since
+&ldquo;remote&rdquo; block is a list we must refer here by the index).</p></li><li><p><code>OIDC-email</code> remote attribute is used as user email</p></li><li><p><code>OIDC-sub</code> (remember the &ldquo;sub&rdquo; mentioned few chapters above as a Keystone
+unique internal user UUID) is becoming the user_id in the Keystone. <em>Note:
+technically speaking this is not the user_id in the Keystone, but used to
+uniquely identify remote user</em></p></li><li><p><code>OIDC-openstack-user-domain-name</code> is becoming user_domain_name attribute</p></li></ul><p>The mapping also describes which roles the user becomes and which projects it
+has access to. However this is a very static configuration and there is no
+reasonable way to keep this information in sync with the real Identity source.
+This is a subject of changes currently being addressed and as such a topic for
+the next part of the series. Since in real life such static configuration is
+barely useful in a multi-domain setup we are not going to use it at all. Feel
+free to consult <a href=https://docs.openstack.org/keystone/latest/admin/federation/mapping_combinations.html class=external-link target=_blank rel=noopener>official
+documentation</a>
+on further mapping capabilities.</p><p>In the next chapter we will see where those remote attributes are coming from.</p><h2 id=protocol>Protocol
+<a class=heading-link href=#protocol><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><p>Last, but not least, we need to connect Identity provider and the mapping. Also
+this can be achieved by both
+<a href=https://docs.openstack.org/api-ref/identity/v3-ext/#add-protocol-to-identity-provider class=external-link target=_blank rel=noopener>api</a>
+or the OpenStackClient.</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-console data-lang=console><span style=display:flex><span>$ openstack federation protocol create openid --mapping keycloak_mapping --identity-provider keycloak
+</span></span></code></pre></div><p>This marks end of basic Keystone configuration.</p><h1 id=apache-configuration-mod_oidc>Apache configuration (mod_oidc)
+<a class=heading-link href=#apache-configuration-mod_oidc><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h1><p>Keystone itself does not support OpenIDConnect, but it can use
+<a href=https://docs.openstack.org/keystone/latest/admin/federation/configure_federation.html#configuring-an-httpd-auth-module class=external-link target=_blank rel=noopener>mod_oidc</a>
+of Apache web server to take over full protocol communication.</p><p>There is no full configuration available in the Keystone documentation, but
+there is a working configuration file used in the functional tests. For us here
+only certain parts of it are required:</p><h4 id=etchttpdconfdkeystone-oidcconf>/etc/httpd/conf.d/keystone-oidc.conf
+<a class=heading-link href=#etchttpdconfdkeystone-oidcconf><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h4><pre tabindex=0><code class=language-config data-lang=config>OIDCSSLValidateServer Off
+OIDCOAuthSSLValidateServer Off
+OIDCCookieSameSite On
+
+OIDCClaimPrefix &#34;OIDC-&#34;
+OIDCResponseType &#34;id_token&#34;
+# List of attributes that the user will authorize the Identity Provider to send to the Service Provider
+OIDCScope &#34;openid email profile&#34; 
+OIDCProviderMetadataURL &#34;https://localhost:8443/realms/master/.well-known/openid-configuration&#34;
+# Data (client_id and secret) of the Client created in the Keycloak
+OIDCClientID &#34;devstack&#34;
+OIDCClientSecret &#34;nomoresecret&#34;
+
+# mod_auth_oidc internal data protection (no effect on the client)
+OIDCPKCEMethod &#34;S256&#34;
+OIDCCryptoPassphrase &#34;openstack&#34;
+
+# vanity URL that must point to a protected path that does not have any content, such as an extension of the protected federated auth path.
+# you should use it as a redirect_uri in the IDP
+OIDCRedirectURI &#34;http://localhost:5000/v3/auth/OS-FEDERATION/websso/openid&#34;
+
+&lt;Location &#34;/v3/auth/OS-FEDERATION/websso/openid&#34;&gt;
+     AuthType &#34;openid-connect&#34;
+     Require valid-user
+&lt;/Location&gt;
+
+&lt;Location &#34;/v3/auth/OS-FEDERATION/identity_providers/keycloak/protocols/openid/websso&#34;&gt;
+    AuthType &#34;openid-connect&#34;
+    Require valid-user
+&lt;/Location&gt;
+
+&lt;Location &#34;/v3/auth/OS-FEDERATION/identity_providers/keycloak/protocols/openid/auth&#34;&gt;
+    AuthType &#34;openid-connect&#34;
+    Require valid-user
+&lt;/Location&gt;
+
+# IDP Endpoint for token validation
+OIDCOAuthVerifyJwksUri &#34;https://localhost:8443/realms/master/protocol/openid-connect/certs&#34;
+
+# Location a non-browser apps can communicate with
+&lt;Location ~ &#34;/v3/OS-FEDERATION/identity_providers/keycloak/protocols/openid/auth&#34;&gt;
+    # AuthType here is not &#34;openid-connect&#34; since apps going here do not support browser flow
+    AuthType &#34;auth-openidc&#34;
+    Require valid-user
+&lt;/Location&gt;
+</code></pre><p>Also here there are plenty of things that can be configured differently
+(perhaps correct statement here is: wrong), especially since it all depends on
+how exactly Keystone itself is being running (i.e. as uwsgi app or not) and
+which ports are being exposed. What is important is that
+<code>OIDCProviderMetadataURL</code> here points to the Keycloak we configured above (the
+URL need to point to to the correct Keycloak realm where the client was
+configured), <code>OIDCClientID</code> and <code>OIDCClientSecret</code> match ID and password of the
+client.</p><p>In previous chapter we have seen that &ldquo;remote&rdquo; attributes of the Keystone
+mapping all have &ldquo;OIDC-&rdquo; prefix. <code>OIDCClaimPrefix</code> is where it is configured.</p><p>For non-browser applications a dedicated endpoint is exposed that is not
+expecting apps to do a regular authentication. We explicitly set the <code>AuthType</code>
+for that to &ldquo;auth-openidc&rdquo; (actually &ldquo;oauth20&rdquo; is working absolutely same way
+and can be interchanged).
+<a href=https://github.com/OpenIDC/mod_auth_openidc/wiki/OAuth-2.0-Resource-Server#keycloak class=external-link target=_blank rel=noopener>mod_auth_openidc</a>
+describes 2 different approaches of the access token validation: remote and
+local. Depending on the preferred choice configuration must be extended with
+either <code>OIDCOAuthVerifyJwksUri</code> or with <code>OIDCOAuthIntrospectionEndpoint</code> +
+<code>OIDCOAuthClientID</code> + <code>OIDCOAuthClientSecret</code></p><p>Depending on whether the Horizon is being used or not and which authentication
+methods users need to use there other parts that need to be configured, but
+that is not belonging to the Keystone-Keycloak communication directly.
+Therefore we can consider configuration as complete. Now if Keystone is started
+as uwsgi app (according to the Apache config above), Apache server started and
+running and Keycloak being available a user trying to authenticate in the Web
+Browser
+(http://localhost:5000/v3/OS-FEDERATION/identity_providers/keycloak/protocols/openid/websso?origin=http://localhost:5050)
+would be redirected to the Keycloak for authentication after which the browser
+will redirect to the &ldquo;http://localhost:5050&rdquo; as entered in the &ldquo;origin&rdquo; URI
+parameter with the OpenStack token being part of the request.</p><h1 id=keystone-configuration-1>Keystone configuration
+<a class=heading-link href=#keystone-configuration-1><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h1><p>Once the federation itself is established it is time to apply final tweaks into
+the Keystone configuration file to enable authentication.</p><h4 id=keystoneconf>keystone.conf
+<a class=heading-link href=#keystoneconf><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h4><pre tabindex=0><code class=language-config data-lang=config>...
+[auth]
+# Add openid into the list of accepted auth methods
+methods = password,token,openid,...
+...
+
+[federation]
+remote_id_attribute = HTTP_OIDC_ISS
+trusted_dashboard = ...
+</code></pre><p>First change here is to add <code>openid</code> into the list of accepted authentication
+methods in <code>auth.methods</code> property.</p><p>It is also necessary to set <code>federation.remote_id_attribute</code> to <code>HTTP_OIDC_ISS</code>
+what is tied to the mod_auth_openidc configuration. See <a href=https://docs.openstack.org/keystone/latest/admin/federation/configure_federation.html#configure-the-remote-id-attribute class=external-link target=_blank rel=noopener>official Keystone
+docs</a>
+for detailed explanation.</p><p>Last, but not least, it is required to extend <code>federation.trusted_dashboard</code>
+configuration option with the list of the dashboards and other URLs that the
+Keystone should be able to redirect user back in the browser once the
+authentication has succeeded.</p><h2 id=resource-owner-password-credentials-grant>Resource Owner Password Credentials Grant
+<a class=heading-link href=#resource-owner-password-credentials-grant><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><p>User can use username and password for authentication. This flow is enabled by
+&ldquo;Direct access grant&rdquo; client configuration option in Keycloak.</p><h4 id=cloudsyaml-for-openstackclient>clouds.yaml for OpenStackClient
+<a class=heading-link href=#cloudsyaml-for-openstackclient><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>clouds</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>federated</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>auth_type</span>: <span style=color:#ae81ff>v3oidcpassword</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>auth</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>auth_url</span>: <span style=color:#ae81ff>http://localhost:5000</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>username</span>: <span style=color:#ae81ff>foo</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>password</span>: <span style=color:#ae81ff>bar</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>identity_provider</span>: <span style=color:#ae81ff>keycloak</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>discovery_endpoint</span>: <span style=color:#ae81ff>https://localhost:8443/realms/master/.well-known/openid-configuration</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>client_id</span>: <span style=color:#ae81ff>keystone</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>client_secret</span>: <span style=color:#ae81ff>i5qKBsiBUewGwgexmDu3Pk8eI8ktPBvO</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>protocol</span>: <span style=color:#ae81ff>openid</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>verify</span>: <span style=color:#66d9ef>false</span>
+</span></span></code></pre></div><p>With this configuration OpenStackClient fetches IDP relevant information from
+&ldquo;discovery_endpoint&rdquo; and performs direct communication with it in order to
+obtain an access token. With it it then performs the next call to
+&ldquo;<code>http://localhost:5000</code>/v3/OS-FEDERATION/identity_providers/<code>keycloak</code>/protocols/<code>openid</code>/auth&rdquo;
+(auth_url, identity_provider and protocol from the configuration are used to
+construct this path). This is exactly the Location in the Apache configuration
+with the <code>auth-openidc</code> configuration. Instead of the discovery_endpoint it is
+possible to specify <code>access_token_endpoint</code> directly.</p><p>There are few major issues isung this approach</p><ul><li><p>No support for MFA. Once user enables additional account protection (
+actually one of the reasons somebody may want to have a IDP is to enforce and
+control certain security aspects) this method stops working.</p></li><li><p>Need to have user password outside the IDP. With OAuth and OpenIDConnect this
+is exactly what we want to prevent</p></li><li><p>Need for the user to know IDP details. User need to know IDP endpoint. But
+what is worse is a need to also know client_id and client_secret. This makes it
+not really usable in a wide scope.</p></li></ul><h2 id=authorization-code-grant-and-the-remaining-oauth-flows>Authorization Code Grant and the remaining OAuth flows
+<a class=heading-link href=#authorization-code-grant-and-the-remaining-oauth-flows><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><p>This is currently a recommended way of user authentication. Sadly it is not
+properly supported in the OpenStackClient as of now. There is an existing OSC
+plugin available
+<a href=https://github.com/IFCA-Advanced-Computing/keystoneauth-oidc/tree/master class=external-link target=_blank rel=noopener>here</a>
+which is, however, not capable to work with upstream Keystone</p><p>Since the plugin has no direct relation towards the OpenStack upstream
+community it is left without further comments here.</p><p>OAuth2 and OpenIDConnect in most cases require knowing the Client created in
+the IDP (client_id, client_secret). That means that a separate set of access
+data is required that user must maintain. What is also representing a challenge
+is that this requires making the client publicly available (since it is
+impossible to assume that client_secret will remain secret). Due to this fact
+and availability of the mod_auth_oidc another way is the preferred one.</p><h2 id=mod_auth_oidc-as-oauth2openid-connect-relying-party>mod_auth_oidc as OAuth2/OpenID Connect Relying Party
+<a class=heading-link href=#mod_auth_oidc-as-oauth2openid-connect-relying-party><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><p>mod_auth_oidc is configured with a dedicated client on the IDP. When a user
+attempts to access protected resources the request is being redirected towards
+the IDP starting a transparent for the user Authorization Code (or Token) grant
+authentication. Once user successfully authenticates with the IDP he is
+redirected back to the requested &ldquo;trusted_dashboard&rdquo;. This redirect will arrive
+as a POST request with OpenStack token present in the request body. The process
+is so transparent that no OAuth2/OpenIDConnect libraries are required. In the
+Keystone this flow is represented under the &ldquo;websso&rdquo; endpoint.</p><p>Single Sign On is currently not supported in python-openstackclient. A new
+experimental OpenStack CLI <a href=https://github.com/gtema/openstack class=external-link target=_blank rel=noopener>osc</a> is
+addressing this gap and tries to deal with authentication differently trying to
+save user from unnecessary re-authentication upon every time a session is being
+established</p><p>Following <code>clouds.yaml</code> configuration is sufficient for that usecase.</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>clouds</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>federated</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>auth_type</span>: <span style=color:#ae81ff>v3websso</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>auth</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>auth_url</span>: <span style=color:#ae81ff>http://localhost:5000</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>identity_provider</span>: <span style=color:#ae81ff>keycloak</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>protocol</span>: <span style=color:#ae81ff>openid</span>
+</span></span></code></pre></div><p>The <code>osc</code> starts webserver listening on the <code>http://localhost:8050/callback</code>
+and it is required to explicitly allow this URL in the list of trusted
+dashboards in the <code>keystone.conf</code>.</p><p><strong>NOTE:</strong> SSO by default relies on the user interaction (with user interacting
+with the IDP in the browser), therefore also this method is hardly applicable
+for the machine to machine usecase</p><p>In the next part we are going to have a deeper look on what is required to
+implement dynamic mapping of federated users to projects and groups/roles with
+data maintained by the IDP itself. Since this is still not implemented in the
+Keystone it will describe current state of things.</p></div><footer></footer></article></section></div><footer class=footer><section class=container>©
+2026
+Artem Goncharov
+·
+Powered by <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> & <a href=https://github.com/luizdepra/hugo-coder/ target=_blank rel=noopener>Coder</a>.</section></footer></main><script src=/js/coder.min.6ae284be93d2d19dad1f02b0039508d9aab3180a12a06dcc71b0b0ef7825a317.js integrity="sha256-auKEvpPS0Z2tHwKwA5UI2aqzGAoSoG3McbCw73gloxc="></script></body></html>

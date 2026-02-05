@@ -1,0 +1,274 @@
+<!doctype html><html lang=en><head><title>Rethinking of OpenStack Authentication and Authorization · Artem Goncharov</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="light dark"><meta name=author content="Artem Goncharov"><meta name=description content="Rethinking of OpenStack Authentication and Authorization"><meta name=keywords content="blog,developer,personal"><meta name=twitter:card content="summary"><meta name=twitter:title content="Rethinking of OpenStack Authentication and Authorization"><meta name=twitter:description content="Rethinking of OpenStack Authentication and Authorization"><meta property="og:url" content="/posts/rethinking-openstack-auth-authz/"><meta property="og:site_name" content="Artem Goncharov"><meta property="og:title" content="Rethinking of OpenStack Authentication and Authorization"><meta property="og:description" content="Rethinking of OpenStack Authentication and Authorization"><meta property="og:locale" content="en"><meta property="og:type" content="article"><meta property="article:section" content="posts"><meta property="article:published_time" content="2025-02-12T00:00:00+00:00"><meta property="article:modified_time" content="2025-02-12T00:00:00+00:00"><link rel=canonical href=/posts/rethinking-openstack-auth-authz/><link rel=preload href=/fonts/fa-brands-400.woff2 as=font type=font/woff2 crossorigin><link rel=preload href=/fonts/fa-regular-400.woff2 as=font type=font/woff2 crossorigin><link rel=preload href=/fonts/fa-solid-900.woff2 as=font type=font/woff2 crossorigin><link rel=stylesheet href=/css/coder.min.7ee04855f01a7f7a311ce189708f520a1a1d93c249cfed3b23e8c27666fc546e.css integrity="sha256-fuBIVfAaf3oxHOGJcI9SChodk8JJz+07I+jCdmb8VG4=" crossorigin=anonymous media=screen><link rel=icon type=image/svg+xml href=/images/favicon.svg sizes=any><link rel=icon type=image/png href=/images/favicon-32x32.png sizes=32x32><link rel=icon type=image/png href=/images/favicon-16x16.png sizes=16x16><link rel=apple-touch-icon href=/images/apple-touch-icon.png><link rel=apple-touch-icon sizes=180x180 href=/images/apple-touch-icon.png><link rel=manifest href=/site.webmanifest><link rel=mask-icon href=/images/safari-pinned-tab.svg color=#5bbad5></head><body class="preload-transitions colorscheme-light"><div class=float-container><a id=dark-mode-toggle class=colorscheme-toggle><i class="fa-solid fa-adjust fa-fw" aria-hidden=true></i></a></div><main class=wrapper><nav class=navigation><section class=container><a class=navigation-title href=/>Artem Goncharov
+</a><input type=checkbox id=menu-toggle>
+<label class="menu-button float-right" for=menu-toggle><i class="fa-solid fa-bars fa-fw" aria-hidden=true></i></label><ul class=navigation-list><li class=navigation-item><a class=navigation-link href=/about/>About</a></li><li class=navigation-item><a class=navigation-link href=/posts/>Blog</a></li><li class=navigation-item><a class=navigation-link href=/talks>Talks</a></li></ul></section></nav><div class=content><section class="container post"><article><header><div class=post-title><h1 class=title><a class=title-link href=/posts/rethinking-openstack-auth-authz/>Rethinking of OpenStack Authentication and Authorization</a></h1></div><div class=post-meta><div class=date><span class=posted-on><i class="fa-solid fa-calendar" aria-hidden=true></i>
+<time datetime=2025-02-12T00:00:00Z>February 12, 2025
+</time></span><span class=reading-time><i class="fa-solid fa-clock" aria-hidden=true></i>
+11-minute read</span></div></div></header><div class=post-content><blockquote><p><strong>Draft</strong></p></blockquote><h1 id=rethinking-of-authentication-and-authorization-support-in-openstack>Rethinking of Authentication and Authorization support in OpenStack
+<a class=heading-link href=#rethinking-of-authentication-and-authorization-support-in-openstack><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h1><p>For a long time I was dealing with diverse issues of authentication and
+authorization in OpenStack. Lot of CSPs I was working with were raising
+different, but at the same time similar complains towards missing or
+inconvenient features. I decided to kick the process of rethinking what may or
+should be improved in OpenStack to address diverse requirements.</p><p>Authentication and authorization are absolutely different things. At the same
+time OpenStack (and honestly OAuth2 same) mixes them in the one step what
+raises misunderstanding of their difference.</p><h2 id=intro-facts>Intro facts
+<a class=heading-link href=#intro-facts><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><h3 id=authentication-authn>Authentication (AuthN)
+<a class=heading-link href=#authentication-authn><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h3><p>Authentication verifies that the user is who he claims to be. Consider this
+being an ID card of a human. Currently OpenStack requires user to authenticate
+to Keystone and get the session token which other services are then accepting
+granting user access to the resources.</p><p>Keystone currently supports following authentication methods (not complete
+list):</p><ul><li><p>username + password. This may be extended to also require MFA.</p></li><li><p>application credential with the secret. Those belong to the single user and
+are tied to the certain authorization scope</p></li><li><p>OIDC. Technically this is something most complains are being raised about. It
+is not implemented natively by Keystone and as such has lots of limitations.</p></li></ul><h3 id=authorization-authz>Authorization (AuthZ)
+<a class=heading-link href=#authorization-authz><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h3><p>Authorization controls what the authenticated user is allowed to do. In
+OpenStack authorization is managed by few components. It is represented by an
+authorization scope (being a project, a domain or a system) and roles a user is
+being granted on the particular scope. This is being controlled by the Keystone
+which is responsible of persisting this mapping. On the other side services
+themselves are responsible for answering the question: what is the user with
+the role able to do. There is no central management of such policies with those
+being configured using yaml files on every host the service runs on.</p><p>When talking about authorization in OpenStack people usually think it is RBAC
+(Role Based Access Control). This is wrong and in reality it is a hybrid or
+RBAC and ABAC (Attribute Based Access Control). This is immediately clear once
+a simple access policy rule is being analyzed: <code>rule:is_owner or role:manager</code>.
+<code>is_owner</code> is something what verifies that attribute of the resource <code>user_id</code>
+is the same that is being currently presented in the authentication
+information.</p><p>Nowadays a concept of ReBAC (Relation Based Access Control) is becoming more
+popular with solutions like OpenFGA based on Google Zanzibar. In that model
+authorizations are being controlled by the authorization models with a triplet
+actor-object-relation representing who is allowed to do what on which object.
+OpenStack Keystone model is actually closer to the ReBAC than to the pure RBAC
+because a single user (actor) is not simply having certain roles (can be mapped
+to relations in ReBAC) but it has them in a certain scope (object). A role
+assignment in the OpenStack is also a triplet actor-target-role.</p><p>A yet another complain I often hear about OpenStack is the lack of
+fine-granular access control allowing to avoid falling into the role explosion
+problem. At the same time management of the service policies is becoming much
+more problematic.</p><h2 id=problems>Problems
+<a class=heading-link href=#problems><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><ul><li><p>OpenStack users (CSP customers) are not having possibility to establish user
+federation (ldap, oidc) or similar without involving administrators.</p></li><li><p>Federation using oidc is managed outside of Keystone itself (typically by
+mod_auth_oidc module) what limits integration capabilities.</p></li><li><p>it is not trivially possible to reuse single external IdP by different
+customers while being themselves in a control of such integration.</p></li><li><p>Modification of oidc federation requires restart of Keystone.</p></li><li><p>Lack of an easy possibility to easily exchange JWT for an OpenStack token.</p></li><li><p>Lack of fine-granular access control. Adding a new role dramatically
+complicates policy management.</p></li><li><p>Lack of possibility to integrate external authorization systems. This is
+often necessary when OpenStack is just one offering in the service portfolio of
+the CSP.</p></li><li><p>Lack of service accounts concept. There is often a misunderstanding that
+OpenStack user != human. Modeling service account as a user with a set of
+application credentials can be used. However in a case of allowing Workflows to
+consume cloud resources such accounts are very dynamic and usually cannot be
+mapped to the application credential. In addition to that controlling
+credentials of such account is more complex than it could be. Application
+credentials can be only created by the user itself and not by other user with
+administrative access.</p></li></ul><p>Recently I have seen an idea of allowing OpenStack access with the OAuth2 on
+the middleware side. On the first sight it looks logical. With the next loo few
+weak points are popping up:</p><ul><li><p>covering complexity of OpenStack authorization model by the IdP is not
+trivial. At the moment Keycloak does not support scope based role assignments.
+As such it is not not trivial to ensure that OAuth token will contain properly
+managed role assignments.</p></li><li><p>service catalog fetching is not possible since Keystone does not itself use
+middleware for authentication</p></li><li><p>it is not possible for customers to control authentication and authorization
+within their domain (not possible to configure own IdP or forbid access with
+GitHub workflow JWT from a foreign repository).</p></li></ul><p>Flipping the process around would be more logical. Here Keystone should become
+an IdP itself and be able to issue a JWT. This could be then easily verified on
+the middleware side by every OpenStack service establishing proper
+centralization while at the same time providing full control to users. Further
+this will allow implementing advanced features of authenticated workloads (i.e.
+VM gets a direct API access token associated with certain permissions or
+infrastructure based authentication).</p><h2 id=what-could-be-done>What could be done
+<a class=heading-link href=#what-could-be-done><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><h3 id=federation-rework>Federation rework
+<a class=heading-link href=#federation-rework><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h3><ul><li><p>allow user login with the oidc auth exchanging it for an OpenStack token. In
+this scenario user initiates authentication with Keystone which serves as a
+relying party and authenticates user with afterwards issuing an OpenStack token
+to the user.</p></li><li><p>allow exchange of JWT issued by the trusted IdP with the OpenStack token. A
+simple use case here is a possibility for an GitHub workflow to access
+OpenStack resources what is possible for the majority of cloud and service
+providers</p></li><li><p>Implement SCIM support so that customer is able in a self-service manner
+synchronize domain users from an external IdP</p></li></ul><h3 id=external-authorization-system>External authorization system
+<a class=heading-link href=#external-authorization-system><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h3><p>There is a series of specially designed authorization systems (OpenFGA,
+OpenPolicyAgent, Permit, Authz, etc).</p><h4 id=openfga>OpenFGA
+<a class=heading-link href=#openfga><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h4><p>It is possible to manage user-project-role assignments in an external system.
+Using a system like OpenFGA in combination with a role assignment backend
+plugin for Keystone allows a seamless integration of 2 worlds with management
+of the assignments centrally in one place while at the same time keeping the
+usual interface for users to manage their assignments using OpenStack API
+(without a need to modify infrastructure deployment strategy (users can still
+use OpenTofu with no change).</p><h4 id=openpolicyagent>OpenPolicyAgent
+<a class=heading-link href=#openpolicyagent><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h4><p>Open Policy Agent is a CNCF project for managing authorizations in a typical
+Policy As a Code approach while having possibility to provide data for a data
+driven policy. It is a very established project supported by the majority of
+services (Kubernetes, Ceph, &mldr;). Idea of integration of OpenPolicyAgent with
+OpenStack is <a href=https://jaosorior.dev/2018/rewriting-openstack-policy-files-in-open-policy-agent-rego-language/ class=external-link target=_blank rel=noopener>not
+new</a>.
+On the one side implementing current policies (as done by oslo.policy) in Rego
+(the official OPA language) is trivially possible even doing this
+programmatically. OPA provides possibility to write test suites for the
+policies. At the same time it is possible to treat policies in the typical
+git-ops approach ensuring every policy change is being tested in the CI.
+Policies can be managed centrally with the OPA instance (typically dedicated
+for every service process to avoid expensive network requests) fetching
+relevant policies automatically in the runtime not even requiring restart.
+Strong point of OPA is a very small latency budget typically making
+authorization decision in under 1 ms.</p><p>Thinking further on that it becomes possible to perform authorization decisions
+already on the API GW (proxy) side reducing amount of invalid load on the
+service process.</p><p>It depends on the deployment tool with CSP being able to optimize it for the
+precise use case (i.e. using tools like Topaz or OPAL to automate data and
+policy automation processes not supported by OPA natively).</p><h2 id=changes>Changes
+<a class=heading-link href=#changes><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h2><h3 id=opa>OPA
+<a class=heading-link href=#opa><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h3><p>Policy of every OpenStack service can be <a href=https://github.com/gtema/oslo.policy.opa class=external-link target=_blank rel=noopener>automatically converted to the
+OPA</a> and policy.yaml file delegating
+the authorization decision on OpenPolicyAgent. All such policies should be
+managed centrally in a dedicated git repository or similar platform. Further
+dedicated grants can be implemented using ReBAC style with corresponding policy
+changes and such assignments being fetched from system like OpenFGA or being
+managed in a different way and provisioned into the OPA instance as required.
+Overall this is achieved trivially and not a single line of OpenStack code need
+to be changed. Only the deployment should be adapted.</p><p>In the long run perhaps managing all policies through the Keystone may be a
+good thing centralizing different aspects of authentication and authorization
+in OpenStack. OPA supports fetching of the policies and data from central
+location as bundles and using keystone as such storage looks logical.</p><h3 id=federation-support>Federation support
+<a class=heading-link href=#federation-support><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h3><p>Majority of big cloud and service providers currently implement an exchange of
+the OAuth2 (JWT) for a short living service token. One example is a GitHub
+workflow where GitHub issues a JWT token and platforms like Vault, GCP, AWS,
+Azure, etc allow to exchange it to the regular service token further supported
+by all specific tools. This enables such workflow to access cloud resources.
+Such approach will also keep all existing OpenStack tools working without a
+change since they get an absolutely normal OpenStack token.</p><p>Other federation related issues in Keystone require certain changes:</p><ul><li><p>customers must be able to register own IdP. IdP may be globally enabled in
+the installation and also some may be only bound to a single domain.</p></li><li><p>customers must be able to manage configurations for the OAuth2/OIDC/JWT
+integration specific to their domain.</p></li><li><p>Exchange of OAuth2/JWT issued by external IdP to the Keystone token must be
+implemented for every domain.</p></li><li><p>Login user using external IdP (the RP mode of the OIDC flow) must be
+implemented natively.</p></li><li><p>SCIM protocol support must be implemented in Keystone to allow automatic user
+data synchronization in combination with OIDC/OAuth user federation.</p></li></ul><h3 id=new-auth-flows>New Auth flows
+<a class=heading-link href=#new-auth-flows><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h3><ul><li>OIDC (RP mode) - replace what mod_auth_oidc is doing now. Such auth request
+may immediately include authorization request to avoid re-authorization
+necessity. User sends auth request to a special URL in Keystone which
+initializes OIDC auth and redirects user to the IdP. Once user authenticates at
+the IdP it is being redirected to the localhost from where client passes
+authorization code with to Keystone to complete the authorization code flow.
+Client gets back the keystone token for the requested scope. This requires
+having oauth/oidc client information in Keystone directly and every customer
+must be able to connect their own IdPs</li></ul><pre tabindex=0><code class=language-mermaid data-lang=mermaid>sequenceDiagram
+
+    Actor Human
+    Human -&gt;&gt; Cli: Initiate auth
+    Cli -&gt;&gt; Keystone: Fetch the OP auth url
+    Keystone --&gt; Keystone: Initialize authorization request
+    Keystone -&gt;&gt; Cli: Returns authURL of the IdP with cli as redirect_uri
+    Cli -&gt;&gt; User-Agent: Go to authURL
+    User-Agent --&gt;&gt; IdP: opens authURL 
+    IdP --&gt;&gt; User-Agent: Ask for consent
+    Human --&gt;&gt; User-Agent: give consent
+    User-Agent --&gt;&gt; IdP: Proceed
+    IdP -&gt;&gt; Cli: callback with Authorization code
+    Cli -&gt;&gt; Keystone: Exchange Authorization code for Keystone token
+    Keystone -&gt;&gt; IdP: Exchange Authorization code for Access token
+    IdP -&gt;&gt; Keystone: Return Access token
+    Keystone -&gt;&gt; Cli: return Keystone token
+    Cli -&gt;&gt; Human: Authorized
+</code></pre><ul><li>JWT. Client requests authorization providing JWT token issued by external
+IdP. Keystone decodes the JWT, validates it with the issuer and after checking
+authorization locally issues a regular token. Also here every customer must be
+able to configure own rules and IdPs from which such requests are allowed. The
+JWT subject may be a regular user (which is then considered in the same way as
+an oidc federated user) or a workflow (similar to service account). Same as in
+the OIDC flow token exchange request may contain scope information or be
+hardcoded in the mapping.</li></ul><pre tabindex=0><code class=language-mermaid data-lang=mermaid>
+sequenceDiagram
+    actor Requester
+    Requester -&gt;&gt; Keystone: Authenticate with JWT
+    activate Keystone
+    Keystone --&gt;&gt; IdP: Validate JWT by issuer
+    activate IdP
+    IdP --&gt;&gt; Keystone: Valid
+    deactivate IdP
+    Keystone --&gt;&gt; Keystone: Issue Fernet token
+    Keystone -&gt;&gt; Requester: Fernet Token
+    deactivate Keystone
+</code></pre><h3 id=keystone-model-change>Keystone model change
+<a class=heading-link href=#keystone-model-change><i class="fa-solid fa-link" aria-hidden=true title="Link to heading"></i>
+<span class=sr-only>Link to heading</span></a></h3><p>There are many similarities between JWT and OIDC, but also differences (OIDC
+flow will most likely contain client_id client_secret, while JWT will never has
+this). Keeping that in mind and also having a peak at SAML configuration it
+makes sense to separate them between dedicated tables.</p><p>At the CSP level there might be pre-configured IdPs that could be used by
+domains. On the other side customers (domain) might need to manage their
+dedicated IdPs. domain_id property of IdP should be optional so that it is
+possible to implement IdP filtering based on customer domain_id or global ones.</p><p>Mappings should belong under the oidc/jwt configuration and be bound to the
+domain.</p><pre tabindex=0><code class=language-mermaid data-lang=mermaid>
+classDiagram
+    class idp {
+        +string id
+        +Option~string~ domain_id
+        +String name
+    }
+
+    class oidc {
+        +string idp_id
+        +option~string~ domain_id
+        +string issuer
+        +string client_id
+        +string client_secret
+        +option~string~ discovery_url
+    }
+
+    class jwt {
+        +string idp_id
+        +option~string~ domain_id
+        +string issuer
+        +string discovery_url
+        +string jwks_url
+    }
+
+    class mapping {
+        +string id
+        +string name
+        +string idp_id
+        +string domain_id
+        +option~string~ allowed_redirect_uri
+        +option~string~ user_claim
+        +option~string~ user_claim_json_pointer
+        +option~string~ groups_claim
+        +option~string~ bound_audiences
+        +option~string~ bound_subject
+        +option~string~ bound_claims
+        +option~string~ bound_claim_types
+        +option~string~ oidc_scopes
+        +option~string~ claim_mappings
+        +option~string~ token_user
+        +option~string~ token_service_account
+        +option~list~ token_roles
+        +option~string~ token_project
+    }
+
+    class service_account {
+        +string id
+        +string user_id
+        +string domain_id
+        +string name
+    }
+
+    class user {
+        +string id
+        ...
+    }
+
+    oidc &#34;1&#34; --|&gt; &#34;1&#34; idp: OIDC flow
+    jwt &#34;1&#34; --|&gt; &#34;1&#34; idp: JWT flow
+    mapping &#34;*&#34; --|&gt; &#34;1&#34; oidc: OIDC mapping
+    mapping &#34;*&#34; --|&gt; &#34;1&#34; jwt: JWT mapping
+    service_account &#34;1&#34; ..&gt; &#34;1&#34; user: mapped to the user
+    mapping &#34;*&#34; .. &#34;1&#34; user: maps to regular user
+    mapping &#34;*&#34; .. &#34;1&#34; service_account: maps to service accounts
+</code></pre></div><footer></footer></article></section></div><footer class=footer><section class=container>©
+2026
+Artem Goncharov
+·
+Powered by <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> & <a href=https://github.com/luizdepra/hugo-coder/ target=_blank rel=noopener>Coder</a>.</section></footer></main><script src=/js/coder.min.6ae284be93d2d19dad1f02b0039508d9aab3180a12a06dcc71b0b0ef7825a317.js integrity="sha256-auKEvpPS0Z2tHwKwA5UI2aqzGAoSoG3McbCw73gloxc="></script></body></html>
