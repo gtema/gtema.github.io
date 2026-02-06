@@ -14,11 +14,11 @@ Historically, service-to-service communication within OpenStack has relied on
 static, hardcoded credentials stored in plain-text configuration files. As the
 industry shifts toward **Zero Trust Architecture (ZTA)**, these legacy methods
 pose significant security risks. This paper proposes a transition to
-cryptographically verified identities using the **SPIFFE** framework and **Open
-Policy Agent (OPA)** to decouple authentication from authorization, eliminate
-static secrets, and streamline policy management through a hybrid model that
-preserves end-user context. Moreover, customers also demand isolating their data
-even from the cloud operators.
+cryptographically verified identities using the **[SPIFFE](https://spiffe.io)**
+framework and **Open Policy Agent (OPA)** to decouple authentication from
+authorization, eliminate static secrets, and streamline policy management
+through a hybrid model that preserves end-user context. Moreover, customers also
+demand isolating their data even from the cloud operators.
 
 ---
 
@@ -80,9 +80,10 @@ infrastructure flexibility.
 ## II. Proposed Zero Trust Architecture
 
 The proposed architecture adopts a Hybrid Token-SVID approach. It utilizes
-**[SPIFFE](spiffe.io)** (Secure Production Identity Framework for Everyone) for
-workload identity and service-to-service communication (Transport Layer) while
-retaining Keystone Tokens (Fernet/JWT) for end-user context (Application Layer).
+**[SPIFFE](https://spiffe.io)** (Secure Production Identity Framework for
+Everyone) for workload identity and service-to-service communication (Transport
+Layer) while retaining Keystone Tokens (Fernet/JWT) for end-user context
+(Application Layer).
 
 ### Key Architectural Shifts:
 
@@ -613,8 +614,7 @@ user's intent.
 
 ## VII. Performance Mitigation
 
-- **Local Sidecar Execution:** OPA runs on the same node as the service (UDS
-  communication).
+- **Local Sidecar Execution:** OPA runs on the same node as the service.
 
 - **Intelligent Caching:** Authorization decisions are cached locally.
 
