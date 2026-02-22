@@ -1,11 +1,8 @@
 +++
 title = "Bringing OpenStack to the Zero Trust era"
-draft = true
 description = "Rethinking Auth or OpenStack user in client applications"
-date = "2026-03-01"
+date = "2026-02-22"
 author = "Artem Goncharov"
-[build]
-  list = 'never'
 +++
 
 ## Introduction
